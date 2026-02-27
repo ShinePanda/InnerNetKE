@@ -1,0 +1,185 @@
+# C++ AI Assistant Configuration
+# ================================
+
+# Application Settings
+app:
+  name: "C++ AI Assistant"
+  version: "1.0.0"
+  debug: false
+  log_level: "INFO"
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
+    - "vscode://"
+  max_request_size: 10485760  # 10MB
+
+# Qwen Model Configuration
+qwen:
+  api_base: "https://your-qwen-endpoint.com/v1"
+  api_key: "${QWEN_API_KEY}"
+  model_name: "qwen-3-235b"
+  max_tokens: 8192
+  temperature: 0.1
+  timeout: 120
+  retry_times: 3
+  retry_delay: 5
+
+# Knowledge Base Configuration
+knowledge_base:
+  # Data directories
+  repos_dir: "./data/repos"
+  docs_dir: "./data/docs"
+  indexes_dir: "./data/indexes"
+  
+  # Vector database settings
+  vector_db:
+    type: "chroma"
+    persist_directory: "./data/indexes/chroma"
+    collection_name: "cpp_code_knowledge"
+    embedding_model: "mixedbread-ai/mxbai-embed-large-v1"
+    hnsw_space: "cosine"
+    hnsw_ef_search: 100
+    hnsw_m: 16
+  
+  # Code analysis settings
+  code_analysis:
+    supported_languages:
+      - "cpp"
+      - "c"
+      - "h"
+      - "hpp"
+      - "cc"
+      - "cxx"
+    tree_sitter_language: "cpp"
+    max_file_size: 1048576  # 1MB
+    exclude_patterns:
+      - "**/build/**"
+      - "**/cmake-build-*/**"
+      - "**/.git/**"
+      - "**/node_modules/**"
+      - "**/third_party/**"
+      - "**/3rd_party/**"
+  
+  # Repository sync settings
+  sync:
+    interval: 3600  # seconds
+    auto_sync: true
+    max_concurrent_syncs: 4
+    clone_timeout: 600
+
+# C++ Specific Analysis
+cpp_analysis:
+  # Code quality rules
+  quality_rules:
+    - id: "memory-leak"
+      name: "Memory Leak Detection"
+      severity: "critical"
+      enabled: true
+    - id: "resource-leak"
+      name: "Resource Leak Detection"
+      severity: "critical"
+      enabled: true
+    - id: "null-pointer"
+      name: "Null Pointer Dereference"
+      severity: "error"
+      enabled: true
+    - id: "buffer-overflow"
+      name: "Buffer Overflow"
+      severity: "critical"
+      enabled: true
+    - id: "uninitialized"
+      name: "Uninitialized Variable"
+      severity: "warning"
+      enabled: true
+    - id: "dead-code"
+      name: "Dead Code Detection"
+      severity: "warning"
+      enabled: true
+    - id: "copy-paste"
+      name: "Copy-Paste Code"
+      severity: "info"
+      enabled: true
+    - id: "complexity"
+      name: "Cyclomatic Complexity"
+      severity: "warning"
+      enabled: true
+    - id: "naming"
+      name: "Naming Convention"
+      severity: "info"
+      enabled: true
+  
+  # Refactoring patterns
+  refactoring_patterns:
+    - id: "extract-method"
+      name: "Extract Method"
+      supported: true
+    - id: "inline-method"
+      name: "Inline Method"
+      supported: true
+    - id: "move-method"
+      name: "Move Method"
+      supported: true
+    - id: "replace-conditional"
+      name: "Replace Conditional with Polymorphism"
+      supported: true
+    - id: "encapsulate-field"
+      name: "Encapsulate Field"
+      supported: true
+    - id: "parameter-object"
+      name: "Introduce Parameter Object"
+      supported: true
+    - id: "remove-flag-arguments"
+      name: "Remove Flag Arguments"
+      supported: true
+    - id: "split-phase"
+      name: "Split Phase"
+      supported: true
+  
+  # Modern C++ recommendations
+  modern_cpp:
+    require_cpp11: true
+    require_cpp14: false
+    require_cpp17: false
+    require_cpp20: false
+    prefer_smart_pointers: true
+    avoid_raw_loops: true
+    use_expressions: true
+
+# Vector Search Settings
+vector_search:
+  default_top_k: 10
+  max_top_k: 50
+  similarity_threshold: 0.5
+  reranker_model: "cross-encoder/ms-marco-MiniLM-L-12-v2"
+  reranker_batch_size: 32
+
+# Task Queue Settings
+task_queue:
+  max_concurrent_tasks: 8
+  task_timeout: 300
+  priority_levels: 3
+
+# Monitoring Settings
+monitoring:
+  enabled: true
+  metrics_endpoint: "/metrics"
+  health_endpoint: "/health"
+  log_requests: true
+  log_responses: false
+
+# Security Settings
+security:
+  enable_auth: false
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+  input_validation:
+    max_query_length: 4096
+    max_code_length: 65536

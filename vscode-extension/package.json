@@ -1,0 +1,205 @@
+{
+  "name": "cpp-ai-assistant",
+  "displayName": "C++ AI Assistant",
+  "description": "AI-powered C++ code refactoring and programming assistant - offline deployment version",
+  "version": "1.0.0",
+  "publisher": "internal-deployment",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Snippets"
+  ],
+  "keywords": [
+    "cpp",
+    "c++",
+    "ai",
+    "assistant",
+    "refactoring",
+    "code-review",
+    "offline",
+    "qianwen",
+    "内网"
+  ],
+  "activationEvents": [
+    "onLanguage:cpp",
+    "onLanguage:c",
+    "onLanguage:h",
+    "onLanguage:hpp",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "C++ AI Assistant",
+      "properties": {
+        "cppAIAssistant.apiEndpoint": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "后端API服务地址"
+        },
+        "cppAIAssistant.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API密钥（如果需要）"
+        },
+        "cppAIAssistant.modelName": {
+          "type": "string",
+          "default": "qwen-3-235b",
+          "description": "使用的模型名称"
+        },
+        "cppAIAssistant.maxTokens": {
+          "type": "number",
+          "default": 2000,
+          "description": "最大生成token数"
+        },
+        "cppAIAssistant.temperature": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "生成温度"
+        },
+        "cppAIAssistant.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用CodeLens显示AI建议"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cppAIAssistant.explainCode",
+        "title": "解释选中代码",
+        "category": "C++ AI Assistant",
+        "enablement": "editorHasSelection"
+      },
+      {
+        "command": "cppAIAssistant.refactorCode",
+        "title": "重构选中代码",
+        "category": "C++ AI Assistant",
+        "enablement": "editorHasSelection"
+      },
+      {
+        "command": "cppAIAssistant.reviewCode",
+        "title": "审查当前文件",
+        "category": "C++ AI Assistant"
+      },
+      {
+        "command": "cppAIAssistant.generateTests",
+        "title": "生成单元测试",
+        "category": "C++ AI Assistant"
+      },
+      {
+        "command": "cppAIAssistant.suggestImprovements",
+        "title": "建议改进",
+        "category": "C++ AI Assistant"
+      },
+      {
+        "command": "cppAIAssistant.openPanel",
+        "title": "打开AI助手面板",
+        "category": "C++ AI Assistant"
+      },
+      {
+        "command": "cppAIAssistant.syncKnowledgeBase",
+        "title": "同步知识库",
+        "category": "C++ AI Assistant"
+      },
+      {
+        "command": "cppAIAssistant.analyzeFile",
+        "title": "分析当前文件（本地）",
+        "category": "C++ AI Assistant"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cppAIAssistant.explainCode",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "cppAIAssistant.refactorCode",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "cppAIAssistant.reviewCode",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c"
+      },
+      {
+        "command": "cppAIAssistant.openPanel",
+        "key": "ctrl+shift+p",
+        "mac": "cmd+shift+p"
+      }
+    ],
+    "languages": [
+      {
+        "id": "cpp",
+        "extensions": [".cpp", ".cc", ".cxx"]
+      },
+      {
+        "id": "c",
+        "extensions": [".c"]
+      },
+      {
+        "id": "h",
+        "extensions": [".h"]
+      },
+      {
+        "id": "hpp",
+        "extensions": [".hpp"]
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cppAIAssistant.explainCode",
+          "when": "editorLangId == cpp && editorHasSelection",
+          "group": "CppAIAssistant@1"
+        },
+        {
+          "command": "cppAIAssistant.refactorCode",
+          "when": "editorLangId == cpp && editorHasSelection",
+          "group": "CppAIAssistant@2"
+        },
+        {
+          "command": "cppAIAssistant.generateTests",
+          "when": "editorLangId == cpp",
+          "group": "CppAIAssistant@3"
+        }
+      ]
+    },
+    "icons": {
+      "logo": {
+        "description": "Extension logo",
+        "default": {
+          "fontPath": "fonts/logo.woff",
+          "fontCharacter": "\\E001"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package",
+    "package:offline": "echo 'No internet - using existing vsce from node_modules'",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/vsce": "^2.19.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4"
+  }
+}

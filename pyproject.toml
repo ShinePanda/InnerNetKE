@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json.schemastore.org/pyproject",
+  "name": "cpp-ai-assistant",
+  "version": "1.0.0",
+  "description": "C++ Code Refactoring and Programming AI Assistant with Qwen Integration",
+  "author": "Matrix Agent",
+  "license": "MIT",
+  "readme": "README.md",
+  "requires-python": ">=3.13",
+  "dependencies": [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
+    "aiofiles>=23.2.1",
+    "httpx>=0.26.0",
+    "chroma-hnswlib>=0.7.3",
+    "chromadb>=0.4.22",
+    "sentence-transformers>=2.5.1",
+    "scikit-learn>=1.4.0",
+    "tree-sitter>=0.21.3",
+    "tree-sitter-languages>=1.10.2",
+    "lxml>=5.1.0",
+    "pyyaml>=6.0.1",
+    "watchdog>=4.0.0",
+    "apscheduler>=3.10.4",
+    "python-json-logger>=2.0.7",
+    "structlog>=24.1.0",
+    "rich>=13.7.0",
+    "tenacity>=8.2.3"
+  ],
+  "optional-dependencies": {
+    "dev": [
+      "pytest>=7.4.0",
+      "pytest-asyncio>=0.23.0",
+      "pytest-cov>=4.1.0",
+      "black>=23.12.0",
+      "ruff>=0.2.0",
+      "mypy>=1.8.0"
+    ]
+  },
+  "scripts": {
+    "start": "uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev": "uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload",
+    "test": "pytest tests/ -v --cov=backend --cov-report=html",
+    "test:unit": "pytest tests/unit/ -v",
+    "test:integration": "pytest tests/integration/ -v",
+    "lint": "ruff check backend/ tests/",
+    "format": "black backend/ tests/"
+  },
+  "tool": {
+    "black": {
+      "line-length": 100,
+      "target-version": ["py313"]
+    },
+    "ruff": {
+      "line-length": 100,
+      "target-version": "py313"
+    }
+  }
+}
