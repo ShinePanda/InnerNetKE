@@ -2,8 +2,10 @@
 C++ AI Assistant - 主FastAPI应用
 """
 import logging
+from datetime import datetime
+from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +18,9 @@ from .models.schemas import (
     CodeReviewRequest, CodeReviewResponse,
     RefactorRequest, RefactorResponse,
     TestGenerationRequest, TestGenerationResponse,
-    HealthStatus, TaskInfo, TaskStatus
+    HealthStatus, TaskInfo, TaskStatus,
+    Location, CodeIssue as CodeIssueSchema,
+    ReviewMetrics, RefactoringSuggestion, TestCase
 )
 from .parsers import CppParser, CppCodeAnalyzer
 from .services.qwen_service import QwenService
@@ -31,11 +35,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 全局实例
-qwen_service: QwenService = None
-vector_store: ChromaVectorStore = None
-hybrid_retriever: HybridRetriever = None
-cpp_parser: CppParser = None
-cpp_analyzer: CppCodeAnalyzer = None
+qwen_service: Optional[QwenService] = None
+vector_store: Optional[ChromaVectorStore] = None
+hybrid_retriever: Optional[HybridRetriever] = None
+cpp_parser: Optional[CppParser] = None
+cpp_analyzer: Optional[CppCodeAnalyzer] = None
 
 
 @asynccontextmanager
@@ -69,7 +73,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise
     
     logger.info("C++ AI Assistant started successfully")
-    
     yield
     
     # 关闭服务
@@ -98,7 +101,6 @@ app.add_middleware(
 )
 
 
-# 依赖注入
 async def get_services():
     """获取服务实例"""
     return {
@@ -109,7 +111,6 @@ async def get_services():
     }
 
 
-# 健康检查端点
 @app.get("/health", response_model=HealthStatus, tags=["Health"])
 async def health_check():
     """健康检查"""
@@ -125,7 +126,6 @@ async def health_check():
     )
 
 
-# API端点
 @app.post("/api/query", response_model=QueryResponse, tags=["AI"])
 async def handle_query(request: QueryRequest, services=Depends(get_services)):
     """处理用户查询"""
@@ -183,12 +183,23 @@ async def review_code(request: CodeReviewRequest, services=Depends(get_services)
             issues = result.get("issues", [])
             metrics_data = result.get("metrics", {})
             
+            # 解析复杂度分数
+            complexity_score = 0.0
+            if metrics_data:
+                complexity = metrics_data.get("complexity", "")
+                if isinstance(complexity, str):
+                    # 将字符串复杂度转换为数值
+                    complexity_map = {"low": 0.3, "medium": 0.6, "high": 0.9}
+                    complexity_score = complexity_map.get(complexity.lower(), 0.5)
+                elif isinstance(complexity, (int, float)):
+                    complexity_score = float(complexity)
+            
             # 构建响应
             return CodeReviewResponse(
                 summary=summary,
                 score=score,
                 issues=[
-CodeIssue(
+                    CodeIssueSchema(
                         issue_id=f"issue-{i}",
                         severity=issue.get("severity", "info"),
                         category=issue.get("category", "correctness"),
@@ -208,7 +219,7 @@ CodeIssue(
                     error_count=sum(1 for i in issues if i.get("severity") == "error"),
                     warning_count=sum(1 for i in issues if i.get("severity") == "warning"),
                     info_count=sum(1 for i in issues if i.get("severity") == "info"),
-                    complexity_score=0.0,
+                    complexity_score=complexity_score,
                     maintainability_score=score
                 ),
                 suggestions=[s.get("suggestion", "") for s in issues if s.get("suggestion")]
@@ -219,8 +230,11 @@ CodeIssue(
                 score=0,
                 issues=[],
                 metrics=ReviewMetrics(
-                    total_issues=0, critical_count=0, error_count=0,
-                    warning_count=0, info_count=0
+                    total_issues=0,
+                    critical_count=0,
+                    error_count=0,
+                    warning_count=0,
+                    info_count=0
                 ),
                 suggestions=["Please configure Qwen API access"]
             )
@@ -331,7 +345,6 @@ async def rebuild_index(background_tasks: BackgroundTasks, services=Depends(get_
     
     # 启动后台任务
     background_tasks.add_task(_rebuild_index_task)
-    
     return {"status": "Index rebuild started"}
 
 
@@ -371,7 +384,6 @@ async def _rebuild_index_task():
                     logger.warning(f"Failed to process {cpp_file}: {e}")
         
         logger.info("Index rebuild completed")
-        
     except Exception as e:
         logger.error(f"Index rebuild failed: {e}")
 
@@ -432,7 +444,6 @@ async def remove_path_mapping(archive_root: str):
     try:
         path_mapper = get_path_mapper()
         success = path_mapper.remove_mapping(archive_root)
-        
         if success:
             return {
                 "success": True,
@@ -465,9 +476,28 @@ async def test_path_mapping(request: PathMappingTestRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 导入需要的类
-from datetime import datetime
-from .models.schemas import (
-    Location, CodeIssue as CodeIssueSchema,
-    ReviewMetrics, RefactoringSuggestion, TestCase
-)
+if __name__ == "__main__":
+    import uvicorn
+    import argparse
+    import os
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="C++ AI Assistant")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    args = parser.parse_args()
+    
+    # 动态获取项目根目录
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    print(f"Starting C++ AI Assistant on {args.host}:{args.port}...")
+    
+    # 从项目根目录运行
+    uvicorn.run(
+        "backend.main:app",
+        host=args.host,
+        port=args.port,
+        reload=False,
+        log_level="info",
+        app_dir=project_root
+    )

@@ -1,372 +1,421 @@
-# C++ AI Assistant - 内网离线部署清单
+# C++ AI Assistant - 离线部署指南
 
-> 生成时间: 2026-02-07 20:10
-> Python版本: 3.11.9
-> Node.js版本: 18.19.0
-> 总大小: ~2.6 GB
-
----
-
-## 📦 已下载的完整依赖清单
-
-### 1. Python Wheel包 (63个)
-
-**位置**: `ext/02-python-wheels/`
-
-**核心依赖**:
-- `fastapi-0.128.4-py3-none-any.whl` - Web框架
-- `uvicorn-0.40.0-py3-none-any.whl` - ASGI服务器
-- `pydantic-2.12.5-py3-none-any.whl` - 数据验证
-- `torch-2.10.0-cp311-cp311-win_amd64.whl` - 深度学习框架
-- `transformers-5.1.0-py3-none-any.whl` - 千问兼容接口
-- `sentence_transformers-5.2.2-py3-none-any.whl` - 嵌入模型
-
-**数据处理**:
-- `pandas-3.0.0-cp311-cp311-win_amd64.whl` - 数据分析
-- `numpy-2.4.2-cp311-cp311-win_amd64.whl` - 数值计算
-- `lxml-6.0.2-cp311-cp311-win_amd64.whl` - XML/HTML解析
-
-**其他工具**:
-- `apscheduler-3.11.2-py3-none-any.whl` - 定时任务
-- `watchdog-6.0.0-py3-none-win_amd64.whl` - 文件监控
-- `httpx-0.28.1-py3-none-any.whl` - HTTP客户端
-
-### 2. NPM包 (9个)
-
-**位置**: `ext/03-nodejs-npm/`
-
-**TypeScript工具**:
-- `typescript-5.3.3.tgz`
-- `types-node-20.11.0.tgz`
-- `types-vscode-1.85.0.tgz`
-- `vsce-2.15.0.tgz`
-
-**MCP服务器** (6个):
-1. ✅ `modelcontextprotocol-server-memory-x.x.x.tgz` - 内存存储
-2. ✅ `modelcontextprotocol-server-sequential-thinking-x.x.x.tgz` - 顺序推理
-3. ✅ `modelcontextprotocol-server-filesystem-x.x.x.tgz` - 文件系统
-4. ✅ `modelcontextprotocol-server-puppeteer-x.x.x.tgz` - 浏览器自动化
-5. ✅ `arabold-docs-mcp-server-x.x.x.tgz` - 文档处理
-6. ✅ `buger-docs-mcp-x.x.x.tgz` - 文档搜索
-
-### 3. 嵌入模型
-
-**位置**: `ext/08-models-embeddings/sentence-transformers-all-MiniLM-L6-v2/`
-
-**模型文件**:
-- `model.safetensors` (87.3 MB) - 模型权重
-- `tokenizer.json` (711 KB) - 分词器
-- `config.json` (774 B) - 配置文件
-- `1_Pooling/` - 池化层
-- `2_Normalize/` - 归一化层
-
-**模型规格**:
-- 向量维度: 384
-- 最大序列长度: 512
-- 适用场景: 代码检索、相似性匹配
-
-### 4. 运行时
-
-**位置**:
-- Python: `ext/05-runtime-python/python-3.11.9-amd64.exe`
-- Node.js: `ext/06-runtime-nodejs/node-v18.19.0-x64.msi`
-
-### 5. Tree-sitter
-
-**安装方式**: 通过Python包 `pip install tree-sitter`
-**支持语言**: C++, Java, Python, JavaScript, TypeScript等
+> Python版本: **3.11.9**
+> 更新日期: 2025-01-22
+> 作者: Matrix Agent
 
 ---
 
-## 🚀 内网部署步骤
+## 目录
 
-### 准备阶段（在外网环境）
+1. [概述](#概述)
+2. [系统要求](#系统要求)
+3. [项目结构](#项目结构)
+4. [快速部署](#快速部署)
+5. [离线安装步骤](#离线安装步骤)
+6. [验证部署](#验证部署)
+7. [配置说明](#配置说明)
+8. [API使用指南](#api使用指南)
+9. [故障排除](#故障排除)
+10. [维护指南](#维护指南)
+11. [常见问题](#常见问题faq)
 
-1. **打包项目**
-```powershell
-# 方法1: PowerShell压缩
-Compress-Archive -Path "projects\3\cpp-ai-assistant" -DestinationPath "cpp-ai-assistant-offline.zip" -Force
+---
 
-# 方法2: 7-Zip（推荐，更快）
-7z a cpp-ai-assistant-offline.zip projects\3\cpp-ai-assistant\
+## 概述
+
+本文档详细介绍如何在**完全内网（Air-gapped）环境**下部署 C++ AI Assistant。所有依赖项已预先下载到本地目录，安装过程无需互联网连接。
+
+### 核心组件
+
+| 组件 | 版本 | 说明 |
+|------|------|------|
+| Python | **3.11.9** | 后端运行时 |
+| FastAPI | 最新版 | Web 框架 |
+| ChromaDB | 0.5.4 | 向量数据库 |
+| tree-sitter | 0.21.3 | C++/ICE 代码解析 |
+| uvicorn | 最新版 | ASGI 服务器 |
+
+---
+
+## 系统要求
+
+### 硬件要求
+
+| 组件 | 最低要求 | 推荐配置 |
+|------|---------|----------|
+| CPU | 4核 | 8核+ |
+| 内存 | 8GB | 16GB+ |
+| 存储 | 10GB | 30GB+ SSD |
+
+### 软件要求
+
+- **操作系统**: Windows Server 2019 / Windows 10/11 (x64)
+- **Python**: 3.11.9 (推荐)
+- **Node.js**: 18+ (可选，用于VSCode扩展)
+
+---
+
+## 项目结构
+
+```
+cpp-ai-assistant/
+├── backend/                      # Python 后端
+│   ├── main.py                 # 服务入口点
+│   ├── config.py               # 配置加载
+│   ├── api/                    # API路由
+│   ├── parsers/                # 代码解析器
+│   │   ├── cpp_analyzer.py     # C++ 代码分析
+│   │   ├── ice_analyzer.py    # ICE Slice 协议解析
+│   │   └── java_analyzer.py    # Java 代码分析
+│   ├── services/               # AI 服务
+│   ├── vectorstore/            # 向量存储
+│   └── utils/                  # 工具函数
+├── ext/                         # 离线依赖包
+│   ├── 02-python-wheels/       # Python 预编译包 (.whl)
+│   └── ...                     # 其他离线资源
+├── data/                        # 数据目录
+│   ├── repos/                  # 代码仓库
+│   ├── docs/                   # 文档
+│   └── indexes/                # 向量索引
+├── config.yaml                 # 主配置文件
+├── requirements.txt            # Python 依赖清单
+└── start.bat                   # 启动脚本
 ```
 
-2. **传输到内网**
-- 使用U盘、内网共享或其他安全方式
-- 确保完整传输 `cpp-ai-assistant-offline.zip`
+---
 
-### 部署阶段（在内网环境）
+## 快速部署
 
-#### 步骤1: 解压项目
+### 步骤1: 安装Python依赖
 
-```powershell
-# 解压到D盘根目录
-Expand-Archive -Path "cpp-ai-assistant-offline.zip" -DestinationPath "D:\" -Force
-
+```bash
 # 进入项目目录
 cd D:\cpp-ai-assistant
+
+# 设置PYTHONPATH
+$env:PYTHONPATH = "D:\cpp-ai-assistant"
+
+# 安装Python包 (使用预下载的whl)
+pip install --no-index --find-links=ext/02-python-wheels -r requirements.txt
+
+# 或直接安装whl
+pip install ext/02-python-wheels/*.whl --no-deps
 ```
 
-#### 步骤2: 安装Python运行时
+### 步骤2: 启动服务
+
+```bash
+# 方式1: 使用模块方式 (推荐)
+python -m backend.main
+
+# 方式2: 使用uvicorn
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+# 方式3: 直接运行main.py
+python backend/main.py
+```
+
+> ⚠️ **注意**: 必须设置 `PYTHONPATH` 环境变量指向项目根目录
+
+### 步骤3: 验证
 
 ```powershell
-# 安装Python 3.11.9
-.\ext\05-runtime-python\python-3.11.9-amd64.exe /passive InstallAllUsers=0 PrependPath=1 Include_test=0
+# 测试健康检查
+Invoke-WebRequest -Uri "http://localhost:8000/health"
 
-# 验证安装
-python --version
-# 应显示: Python 3.11.9
+# 或使用curl
+curl http://localhost:8000/health
 ```
 
-#### 步骤3: 安装Node.js运行时
+---
+
+## 离线安装步骤
+
+### 方式A: 使用预下载的whl包 (推荐)
+
+项目已包含预下载的依赖包在 `ext/02-python-wheels/` 目录：
+
+```bash
+# 安装所有whl
+pip install ext/02-python-wheels/*.whl --no-deps
+
+# 或使用requirements.txt (自动查找whl)
+pip install --no-index --find-links=ext/02-python-wheels -r requirements.txt
+```
+
+### 方式B: 自行下载whl包
+
+如需更新依赖，在有网络的机器上：
+
+```bash
+# 下载所有依赖到指定目录
+pip download -r requirements.txt --dest ./ext/02-python-wheels --only-binary=:all:
+
+# 下载后拷贝整个ext目录到目标机器
+```
+
+### 核心依赖包说明
+
+| 目录 | 内容 | 说明 |
+|------|------|------|
+| `ext/02-python-wheels/` | Python .whl 包 | 包含 chromadb, fastapi, uvicorn 等 |
+| `ext/07-tools-tree-sitter/` | tree-sitter 工具 | C++/C/Java 语法解析 |
+| `ext/08-models-embeddings/` | 嵌入模型 | SentenceTransformer 模型 |
+
+---
+
+## 验证部署
+
+### 1. 健康检查
 
 ```powershell
-# 安装Node.js 18.19.0
-msiexec /i .\ext\06-runtime-nodejs\node-v18.19.0-x64.msi /passive
-
-# 验证安装
-node --version
-# 应显示: v18.19.0
-npm --version
-# 应显示某个版本号
+Invoke-WebRequest -Uri "http://localhost:8000/health"
 ```
 
-#### 步骤4: 安装Python依赖
-
-```powershell
-# 运行安装脚本
-python install.py
-
-# 或手动安装wheel包
-cd ext\02-python-wheels
-pip install *.whl --no-index
-```
-
-#### 步骤5: 配置环境
-
-创建 `.env` 文件:
-
-```env
-# 千问企业版API配置
-QWEN_API_BASE=http://internal-qwen.example.com/v1
-QWEN_API_KEY=your-api-key-here
-QWEN_MODEL=qwen-3-235b
-
-# 嵌入模型路径（本地）
-EMBEDDING_MODEL_PATH=./ext/08-models-embeddings/sentence-transformers-all-MiniLM-L6-v2
-
-# 服务器配置
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8000
-LOG_LEVEL=INFO
-
-# 代码库配置
-CODE_REPOSITORIES=D:/repos
-MAX_FILE_SIZE=10485760  # 10MB
-```
-
-#### 步骤6: 配置MCP服务器
-
-创建 `.config/mcp.json`:
-
+预期响应：
 ```json
 {
-  "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "D:/repos"]
-    },
-    "arabold-docs": {
-      "command": "npx",
-      "args": ["-y", "@arabold/docs-mcp-server"],
-      "env": {
-        "DOCS_PATH": "./docs"
-      }
-    }
+  "status": "healthy",
+  "version": "1.0.0",
+  "components": {
+    "qwen": true,
+    "vector_store": true,
+    "cpp_parser": true,
+    "ice_parser": true
   }
 }
 ```
 
-#### 步骤7: 启动服务
+### 2. 验证 Python 依赖
 
-```powershell
-# 启动FastAPI服务器
-python backend/main.py
+```bash
+# 检查关键模块
+python -c "import fastapi, uvicorn, yaml, chromadb; print('Core OK')"
 
-# 或使用uvicorn直接启动
-uvicorn server_main:app --host 0.0.0.0 --port 8000
+# 检查 tree-sitter
+python -c "import tree_sitter; print(tree_sitter.Language.version())"
 ```
 
-服务启动后:
-- API地址: `http://localhost:8000`
-- 文档地址: `http://localhost:8000/docs`
-- 健康检查: `http://localhost:8000/health`
+### 3. API 文档
+
+访问 `http://localhost:8000/docs` 查看 Swagger UI
 
 ---
 
-## 🔍 部署验证
+## 配置说明
 
-### 1. 验证Python包
+### 配置文件位置
 
-```powershell
-python -c "import fastapi; import torch; import transformers; import sentence_transformers; print('✓ 所有Python包安装成功')"
-```
+- 主配置: `config.yaml` (推荐，使用 YAML 注释方便)
+- 备选: `config.json`
 
-### 2. 验证嵌入模型
+### 关键配置项
 
-```powershell
-python -c "from sentence_transformers import SentenceTransformer; model = SentenceTransformer('./ext/08-models-embeddings/sentence-transformers-all-MiniLM-L6-v2'); embeddings = model.encode(['测试文本']); print(f'✓ 模型加载成功，向量维度: {embeddings.shape[1]}')"
-```
+```yaml
+# 服务配置
+server:
+  host: "0.0.0.0"
+  port: 8000
 
-### 3. 验证MCP服务器
+# Qwen模型配置 (如需使用AI功能)
+qwen:
+  api_key: "${QWEN_API_KEY}"  # 建议使用环境变量
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  model: "qwen-plus"
 
-```powershell
-# 测试Memory服务器
-npx -y @modelcontextprotocol/server-memory --help
+# ChromaDB 配置 (可选)
+chromadb:
+  persist_directory: "./data/indexes"
+  collection_name: "code_entities"
 
-# 测试文件系统服务器
-npx -y @modelcontextprotocol/server-filesystem --help
-```
+# Tree-sitter 配置
+tree_sitter:
+  grammar_path: "./ext/07-tools-tree-sitter"
+  languages: ["cpp", "c", "python", "java", "ice"]
 
-### 4. 验证API服务
-
-```powershell
-# 健康检查
-curl http://localhost:8000/health
-
-# 测试分析接口
-curl -X POST http://localhost:8000/analyze/code -H "Content-Type: application/json" -d '{"code": "int main() { return 0; }", "language": "cpp"}'
-```
-
----
-
-## 📊 系统要求
-
-### 硬件要求
-
-| 组件 | 最低配置 | 推荐配置 |
-|------|---------|---------|
-| CPU | 4核 | 16核 |
-| 内存 | 16 GB | 32 GB |
-| 硬盘 | 5 GB可用 | 1 TB |
-| 网络 | 内网 | 内网 |
-
-### 软件要求
-
-- **操作系统**: Windows Server 2019 或更高
-- **Python**: 3.11.9（离线安装）
-- **Node.js**: 18.19.0（离线安装）
-- **Git**: 用于代码仓库版本控制
-
----
-
-## 📁 目录结构
-
-```
-cpp-ai-assistant/
-├── ext/                                        # 离线资源
-│   ├── 01-python-pip/                          # Python源码包
-│   ├── 02-python-wheels/                       # 63个wheel文件
-│   ├── 03-nodejs-npm/                          # 9个npm包
-│   ├── 05-runtime-python/                      # Python安装程序
-│   ├── 06-runtime-nodejs/                      # Node.js安装程序
-│   ├── 07-tools-tree-sitter/                   # Tree-sitter（Python包）
-│   ├── 08-models-embeddings/                   # 嵌入模型
-│   │   └── sentence-transformers-all-MiniLM-L6-v2/
-│   │       ├── model.safetensors               # 87.3 MB
-│   │       ├── tokenizer.json                  # 711 KB
-│   │       └── ...
-│   └── manifest.json                           # 依赖清单
-├── server_main.py                              # 服务器主程序
-├── install.py                                  # 安装脚本
-├── download_dependencies.py                    # 下载脚本
-├── requirements-py3-universal.txt              # Python依赖清单
-├── .env                                        # 环境配置（创建）
-├── .config/mcp.json                            # MCP配置（创建）
-└── docs/                                       # 文档
-    ├── MCP_SERVERS_SETUP.md
-    └── API_REFERENCE.md
+# 日志配置
+logging:
+  level: "INFO"
+  file: "./logs/app.log"
 ```
 
 ---
 
-## ⚠️ 常见问题
+## API使用指南
 
-### Q1: pip安装时提示"已存在但版本不对"
+### 核心 API 端点
 
-```powershell
-# 强制重新安装
-pip install --force-reinstall --no-index --no-deps <package-name>.whl
-```
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/health` | GET | 健康检查 |
+| `/docs` | GET | Swagger API 文档 |
+| `/api/v1/analyze` | POST | C++ 代码分析 |
+| `/api/v1/ice/parse` | POST | ICE Slice 文件解析 |
+| `/api/v1/refactor` | POST | 代码重构 |
+| `/api/v1/review` | POST | 代码审查 |
+| `/api/v1/search` | GET | 向量搜索 |
 
-### Q2: Node.js安装后npm命令找不到
+### 示例请求
 
-```powershell
-# 重启PowerShell或添加环境变量
-$env:Path += ";C:\Program Files\nodejs"
-```
+```bash
+# 代码分析
+curl -X POST http://localhost:8000/api/v1/analyze ^
+  -H "Content-Type: application/json" ^
+  -d "{\"code\": \"void hello() { printf(\"Hello\"); }\"}"
 
-### Q3: 嵌入模型加载失败
+# ICE Slice 解析
+curl -X POST http://localhost:8000/api/v1/ice/parse ^
+  -H "Content-Type: application/json" ^
+  -d "{\"content\": \"module Demo { interface Hello { void say(); } }\"}"
 
-```powershell
-# 检查模型路径是否正确
-Get-ChildItem .\ext\08-models-embeddings\ -Recurse
-
-# 确保所有文件完整
-```
-
-### Q4: MCP服务器无法启动
-
-```powershell
-# 检查npm包是否正确安装
-cd ext\03-nodejs-npm
-npm pack <package-name> --pack-destination ../temp
-
-# 或直接测试
-npx -y <package-name> --help
-```
-
-### Q5: 服务启动后无法访问
-
-```powershell
-# 检查防火墙规则
-New-NetFirewallRule -DisplayName "C++ AI Assistant" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow
-
-# 检查服务状态
-Get-Process python
+# 代码搜索
+curl "http://localhost:8000/api/v1/search?query=function+definition"
 ```
 
 ---
 
-## ✅ 部署检查清单
+## 故障排除
 
-- [ ] 解压项目到目标目录
-- [ ] 安装Python 3.11.9
-- [ ] 安装Node.js 18.19.0
-- [ ] 安装所有Python wheel包
-- [ ] 配置.env文件（千问API、模型路径）
-- [ ] 配置MCP服务器
-- [ ] 验证嵌入模型加载
-- [ ] 启动服务
-- [ ] 测试API接口
-- [ ] 配置文件监控
-- [ ] 配置定时任务（可选）
+### 问题1: ModuleNotFoundError
+
+**症状**: `ModuleNotFoundError: No module named 'xxx'`
+
+**解决**:
+```bash
+# 使用离线whl安装缺失模块
+pip install --no-index --find-links=ext/02-python-wheels xxx
+```
+
+### 问题2: chromadb 加载失败
+
+**症状**: `Failed to load SentenceTransformer` 或 `ModuleNotFoundError: No module named 'chromadb'`
+
+**解决**: 这是可选功能，不影响基本API使用。如需完整功能：
+```bash
+# 安装预下载的 chromadb
+pip install ext/02-python-wheels/chromadb-*.whl --no-deps
+pip install sentence-transformers
+```
+
+### 问题3: tree-sitter 版本不兼容
+
+**症状**: `TypeError: tree_sitter.Query() takes no arguments`
+
+**解决**: 项目已处理兼容问题，如仍有问题：
+```bash
+pip install tree-sitter==0.21.3
+pip install tree-sitter-languages==1.10.2
+```
+
+### 问题4: ImportError: No module named 'backend'
+
+**症状**: `ModuleNotFoundError: No module named 'backend'`
+
+**解决**: 设置 PYTHONPATH 环境变量
+```powershell
+# PowerShell
+$env:PYTHONPATH = "D:\cpp-ai-assistant"
+
+# CMD
+set PYTHONPATH=D:\cpp-ai-assistant
+
+# 永久设置 (系统属性 -> 高级 -> 环境变量)
+```
+
+### 问题5: 服务启动失败 (端口占用)
+
+**症状**: `OSError: [Errno 10048] Only one usage of each socket address`
+
+**解决**:
+```bash
+# 查看端口占用
+netstat -ano | findstr 8000
+
+# 关闭占用进程
+taskkill /PID <PID> /F
+```
+
+### 问题6: YAML 解析错误
+
+**症状**: `yaml.scanner.ScannerError` 或 Import 警告
+
+**解决**: 确保 config.yaml 格式正确，缩进使用空格
 
 ---
 
-## 🎉 部署完成
+## 维护指南
 
-恭喜！C++ AI Assistant已成功部署到内网环境。
+### 更新依赖
 
-现在可以:
-- 使用千问大模型进行代码分析
-- 进行C++/Java代码重构
-- 执行自动化代码审查
-- 查询代码知识库
-- 使用MCP服务器扩展功能
+1. 下载新版本依赖包到 `ext/02-python-wheels/` 目录
+2. 重新运行安装命令
+3. 重启服务
 
-享受内网私有化AI代码助手！
+### 备份数据
+
+```bash
+# 备份向量索引
+robocopy /E /ZB /R:3 /W:5 "data\indexes" "backup\indexes"
+
+# 备份模型
+robocopy /E /ZB /R:3 /W:5 "data\models" "backup\models"
+```
+
+### 日志轮转
+
+日志文件自动生成在 `logs/` 目录，定期清理：
+
+```bash
+# 清理 7 天前的日志 (PowerShell)
+Get-ChildItem -Path logs -Filter *.log | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } | Remove-Item
+```
+
+---
+
+## 常见问题 (FAQ)
+
+**Q: 支持哪些 Python 版本？**
+A: 推荐 Python 3.11.9，已测试兼容性
+
+**Q: 是否可以在 Linux/macOS 运行？**
+A: 当前版本针对 Windows 优化，Linux/macOS 需调整路径分隔符
+
+**Q: 内存不足怎么办？**
+A: 减少 HNSW 索引参数，或不使用向量功能（基础API不受影响）
+
+**Q: 首次启动很慢？**
+A: 首次启动会加载嵌入模型（约1-2GB），后续启动使用缓存
+
+**Q: 如何完全卸载？**
+A: 删除安装目录即可，无系统级安装
+
+**Q: ICE 解析器支持哪些语法？**
+A: 支持 module, interface, struct, enum, sequence, dictionary, exception, const
+
+---
+
+## 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| 1.0.0 | 2025-01-20 | 初始发布 |
+| 1.0.1 | 2025-01-21 | 修复安装脚本 |
+| 1.0.2 | 2025-01-22 | 添加故障排除指南，整合多文档内容 |
+
+---
+
+## 技术支持
+
+如遇到问题，请收集以下信息：
+
+1. 安装/错误日志文件
+2. 系统信息：`systeminfo`
+3. Python 版本：`python --version`
+4. 错误截图或完整错误信息
+
+联系技术支持时，请提供以上信息及详细的故障描述。
+
+---
+
+*本文档整合自 DEPLOYMENT.md, DEPLOYMENT_GUIDE.md, OFFLINE_DEPLOYMENT.md*

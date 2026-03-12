@@ -1,15 +1,12 @@
-"""
-千问模型服务集成
-"""
+""" 千问模型服务集成 """
+import json
 import logging
 from typing import AsyncIterator, Dict, List, Optional, Any
 from datetime import datetime
 from pathlib import Path
-
 import httpx
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-
 from ..config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -20,7 +17,7 @@ class Message(BaseModel):
     role: str  # system, user, assistant
     content: str
     timestamp: datetime = None
-    
+
     def __init__(self, **data):
         super().__init__(**data)
         if self.timestamp is None:
@@ -29,7 +26,7 @@ class Message(BaseModel):
 
 class QwenService:
     """千问模型服务"""
-    
+
     def __init__(self):
         self.settings = get_settings()
         self.api_base = self.settings.qwen.api_base
@@ -38,7 +35,6 @@ class QwenService:
         self.max_tokens = self.settings.qwen.max_tokens
         self.temperature = self.settings.qwen.temperature
         self.timeout = self.settings.qwen.timeout
-        
         self.http_client = httpx.AsyncClient(
             timeout=self.timeout,
             headers={
@@ -46,11 +42,11 @@ class QwenService:
                 "Content-Type": "application/json"
             }
         )
-    
+
     async def close(self):
         """关闭HTTP客户端"""
         await self.http_client.aclose()
-    
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -65,7 +61,6 @@ class QwenService:
     ) -> Dict[str, Any]:
         """发送对话请求"""
         url = f"{self.api_base}/chat/completions"
-        
         payload = {
             "model": self.model_name,
             "messages": messages,
@@ -73,9 +68,7 @@ class QwenService:
             "max_tokens": max_tokens or self.max_tokens,
             "stream": stream
         }
-        
         logger.debug(f"Sending request to Qwen API: {url}")
-        
         try:
             response = await self.http_client.post(url, json=payload)
             response.raise_for_status()
@@ -86,7 +79,7 @@ class QwenService:
         except Exception as e:
             logger.error(f"Request failed: {e}")
             raise
-    
+
     async def chat_stream(
         self,
         messages: List[Dict[str, str]],
@@ -95,7 +88,6 @@ class QwenService:
     ) -> AsyncIterator[str]:
         """流式对话"""
         url = f"{self.api_base}/chat/completions"
-        
         payload = {
             "model": self.model_name,
             "messages": messages,
@@ -103,7 +95,6 @@ class QwenService:
             "max_tokens": max_tokens or self.max_tokens,
             "stream": True
         }
-        
         async with self.http_client.stream("POST", url, json=payload) as response:
             async for chunk in response.aiter_lines():
                 if chunk.startswith("data: "):
@@ -111,13 +102,12 @@ class QwenService:
                     if data == "[DONE]":
                         break
                     try:
-                        import json
                         chunk_data = json.loads(data)
                         if content := chunk_data.get("choices", [{}])[0].get("delta", {}).get("content"):
                             yield content
                     except json.JSONDecodeError:
                         continue
-    
+
     async def explain_code(
         self,
         code: str,
@@ -125,29 +115,27 @@ class QwenService:
         language: str = "cpp"
     ) -> str:
         """解释代码"""
-        system_prompt = """You are an expert C++ code analyst. Your task is to provide clear, 
-        comprehensive explanations of C++ code. Focus on:
+        system_prompt = """You are an expert C++ code analyst. Your task is to provide clear, comprehensive explanations of C++ code.
+
+        Focus on:
         1. Overall purpose and functionality
         2. Key classes, functions, and their relationships
         3. Design patterns and architectural decisions
         4. Potential improvements and best practices
-        
+
         Provide your explanation in a structured format with code examples where helpful.
         """
-        
         user_content = f"## Code to Explain\n```{language}\n{code}\n```"
-        
         if context:
             user_content += f"\n\n## Additional Context\n{context}"
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
         ]
-        
         response = await self.chat(messages)
         return response["choices"][0]["message"]["content"]
-    
+
     async def review_code(
         self,
         code: str,
@@ -161,10 +149,11 @@ class QwenService:
             "style": "Focus on coding style, naming conventions, and best practices.",
             "full": "Comprehensive review covering all aspects: security, performance, style, and correctness."
         }
-        
-        system_prompt = f"""You are an expert C++ code reviewer. Review the code for quality, 
-        safety, and best practices. {scope_prompts.get(review_scope, scope_prompts["full"])}
-        
+
+        system_prompt = f"""You are an expert C++ code reviewer. Review the code for quality, safety, and best practices.
+
+        {scope_prompts.get(review_scope, scope_prompts["full"])}
+
         Output your review in JSON format:
         {{
             "summary": "Brief review summary",
@@ -184,20 +173,16 @@ class QwenService:
             }}
         }}
         """
-        
         user_content = f"## Code to Review\n```cpp\n{code}\n```"
-        
         if file_path:
             user_content += f"\n\nFile: {file_path}"
-        
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
         ]
-        
         response = await self.chat(messages)
-        import json
-        
+
         try:
             # 尝试解析JSON响应
             content = response["choices"][0]["message"]["content"]
@@ -206,7 +191,6 @@ class QwenService:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
-            
             result = json.loads(content)
             return result
         except (json.JSONDecodeError, KeyError, IndexError):
@@ -218,7 +202,7 @@ class QwenService:
                 "issues": [],
                 "metrics": {"error": "Failed to parse structured response"}
             }
-    
+
     async def suggest_refactoring(
         self,
         code: str,
@@ -235,18 +219,16 @@ class QwenService:
             "modern-cpp": "Modernize C++ code to use current best practices.",
             "general": "Provide general refactoring suggestions."
         }
-        
+
         constraint_text = "\n".join(constraints) if constraints else "No specific constraints."
-        
-        system_prompt = f"""You are an expert C++ refactoring specialist. 
-        Analyze the code and suggest refactoring improvements.
-        
+
+        system_prompt = f"""You are an expert C++ refactoring specialist. Analyze the code and suggest refactoring improvements.
+
         Refactoring Type: {refactor_type}
         {type_prompts.get(refactor_type, type_prompts["general"])}
-        
-        Constraints:
-        {constraint_text}
-        
+
+        Constraints: {constraint_text}
+
         Output format:
         {{
             "current_state": "Description of current code structure",
@@ -273,15 +255,12 @@ class QwenService:
             }}
         }}
         """
-        
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"## Code to Refactor\n```cpp\n{code}\n```"}
         ]
-        
         response = await self.chat(messages)
-        import json
-        
+
         try:
             content = response["choices"][0]["message"]["content"]
             if "```json" in content:
@@ -293,7 +272,7 @@ class QwenService:
                 "summary": response["choices"][0]["message"]["content"],
                 "error": "Failed to parse structured response"
             }
-    
+
     async def generate_tests(
         self,
         code: str,
@@ -306,13 +285,12 @@ class QwenService:
             "normal": "Normal coverage including edge cases",
             "comprehensive": "Full coverage including error handling and boundary conditions"
         }
-        
-        system_prompt = f"""You are an expert C++ test engineer. Generate comprehensive 
-        unit tests for the provided code.
-        
+
+        system_prompt = f"""You are an expert C++ test engineer. Generate comprehensive unit tests for the provided code.
+
         Test Framework: {test_framework}
         Coverage Level: {coverage_descriptions.get(coverage_level, coverage_descriptions["basic"])}
-        
+
         Output format:
         {{
             "test_cases": [
@@ -327,15 +305,12 @@ class QwenService:
             "coverage_notes": ["Note about coverage"]
         }}
         """
-        
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"## Code to Test\n```cpp\n{code}\n```"}
         ]
-        
         response = await self.chat(messages)
-        import json
-        
+
         try:
             content = response["choices"][0]["message"]["content"]
             if "```json" in content:

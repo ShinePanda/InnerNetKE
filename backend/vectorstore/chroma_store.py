@@ -1,5 +1,6 @@
 """
 向量存储服务 - ChromaDB集成
+兼容 chromadb 1.5.x 版本
 """
 import logging
 from pathlib import Path
@@ -9,7 +10,6 @@ import hashlib
 import uuid
 
 import chromadb
-from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 import numpy as np
 
@@ -53,33 +53,33 @@ class VectorStore:
 
 
 class ChromaVectorStore(VectorStore):
-    """ChromaDB向量存储实现"""
+    """ChromaDB向量存储实现 - 兼容 1.5.x 版本"""
     
     def __init__(self):
         self.settings = get_settings()
         self.vector_config = self.settings.knowledge_base.vector_db
         
-        # 初始化ChromaDB客户端
+        # 初始化ChromaDB客户端 (1.5.x API)
         persist_dir = Path(self.vector_config.persist_directory)
         persist_dir.mkdir(parents=True, exist_ok=True)
         
         self.client = chromadb.PersistentClient(
-            path=str(persist_dir),
-            settings=Settings(
-                anonymized_telemetry=False,
-                allow_reset=False
-            )
+            path=str(persist_dir)
         )
         
-        # 获取或创建集合
-        self.collection = self.client.get_or_create_collection(
-            name=self.vector_config.collection_name,
-            metadata={
-                "hnsw:space": self.vector_config.hnsw_space,
-                "hnsw:M": self.vector_config.hnsw_m,
-                "hnsw:ef_construction": 100
-            }
-        )
+        # 获取或创建集合 (1.5.x API - metadata简化)
+        try:
+            self.collection = self.client.get_or_create_collection(
+                name=self.vector_config.collection_name,
+                metadata={
+                    "hnsw:space": self.vector_config.hnsw_space
+                }
+            )
+        except Exception:
+            # 如果metadata格式不支持，使用简化版本
+            self.collection = self.client.get_or_create_collection(
+                name=self.vector_config.collection_name
+            )
         
         # 初始化嵌入函数
         self._init_embedding_function()

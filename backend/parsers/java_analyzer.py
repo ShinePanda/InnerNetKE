@@ -6,7 +6,7 @@ Java代码解析器
 import hashlib
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import tree_sitter
 from tree_sitter import Node, Parser, Tree
 from tree_sitter_languages import get_language

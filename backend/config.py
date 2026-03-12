@@ -8,7 +8,6 @@ from functools import lru_cache
 
 import yaml
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
 
 
 class AppConfig(BaseModel):
