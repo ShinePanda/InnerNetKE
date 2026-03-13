@@ -593,3 +593,77 @@ class JavaCodeAnalyzer:
         """生成问题ID"""
         import uuid
         return f"issue-{uuid.uuid4().hex[:8]}"
+
+
+    # ====================== 新增 RAG 专用方法 ======================
+    def get_rag_chunks(
+        self,
+        file_path: str,
+        content: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        专为 Chroma RAG 设计的语义 chunk 方法
+        返回格式：[{"content": str, "metadata": dict}]
+        """
+        if content is None:
+            tree, content = self.parser.parse_file(file_path)
+        else:
+            tree = self.parser.parse_content(content)
+
+        chunks: List[Dict[str, Any]] = []
+
+        # Tree-sitter 查询提取类、方法、字段等
+        query = self.parser.language.query("""
+            (class_declaration) @class
+            (method_declaration) @method
+            (field_declaration) @field
+            (interface_declaration) @interface
+        """)
+        
+        captures = query.captures(tree.root_node)
+        
+        for node, capture_name in captures:
+            chunk_text = node.text.decode("utf-8").strip()
+            if not chunk_text or len(chunk_text) < 10:
+                continue
+
+            start_line = node.start_point[0] + 1
+            end_line   = node.end_point[0] + 1
+
+            entity_type = {
+                "class": EntityType.CLASS,
+                "method": EntityType.METHOD,
+                "field": EntityType.FIELD,
+                "interface": EntityType.INTERFACE
+            }.get(capture_name, EntityType.UNKNOWN)
+
+            entity = CodeEntity(
+                entity_id=hashlib.md5(f"{file_path}:{capture_name}:{start_line}".encode()).hexdigest()[:16],
+                entity_type=entity_type,
+                name=chunk_text.split(maxsplit=2)[1] if len(chunk_text.split()) > 1 else "anonymous",
+                location=Location(file_path=file_path, start_line=start_line, end_line=end_line),
+                file_path=file_path,
+                content=chunk_text,
+                signature=chunk_text[:300],
+                doc_comment="",
+                language="java"
+            )
+            
+            chunks.append({
+                "content": chunk_text,
+                "metadata": entity.to_dict()
+            })
+
+        # 兜底整文件
+        if not chunks:
+            chunks.append({
+                "content": content[:8000],
+                "metadata": {
+                    "file_path": file_path,
+                    "entity_type": "file",
+                    "language": "java",
+                    "name": Path(file_path).name
+                }
+            })
+        
+        return chunks

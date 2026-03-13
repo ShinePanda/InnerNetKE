@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from .code_entities import CodeEntity, EntityType, Location
 
 logger = logging.getLogger(__name__)
 
@@ -535,7 +536,78 @@ class IceParser:
             "includes": self.includes,
             "modules": [m.to_dict() for m in self.modules]
         }
+    
+    # ====================== 新增 RAG 专用方法 ======================
+    def get_rag_chunks(
+        self,
+        file_path: str,
+        content: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        专为 Chroma RAG 设计的语义 chunk 方法
+        每个 interface/struct/enum/operation 拆成独立 chunk
+        """
+        if content is None:
+            result = self.parse_file(file_path)
+        else:
+            result = self.parse_content(content, file_path)
 
+        chunks: List[Dict[str, Any]] = []
+
+        for module in self.modules:
+            for definition in module.definitions:
+                # module + definition 作为一个 chunk
+                chunk_text = f"module {module.name} {{\n{definition.definition_type} {definition.name} ...\n}}"
+                
+                entity = CodeEntity(
+                    entity_id=hashlib.md5(chunk_text.encode()).hexdigest()[:16],
+                    entity_type=EntityType.CLASS if definition.definition_type in ["interface", "struct"] else EntityType.ENUM,
+                    name=definition.name,
+                    location=Location(file_path=file_path, start_line=definition.line_number),
+                    file_path=file_path,
+                    content=chunk_text,
+                    signature=f"{definition.definition_type} {definition.name}",
+                    doc_comment=definition.doc_comment or "",
+                    language="ice"
+                )
+                
+                chunks.append({
+                    "content": chunk_text,
+                    "metadata": entity.to_dict()
+                })
+
+                # 每个 operation 单独 chunk（北向接口 RPC 核心）
+                for op in definition.operations:
+                    op_text = f"[{op.return_type}] {op.name}({', '.join(p.type_str + ' ' + p.name for p in op.parameters)})"
+                    op_entity = CodeEntity(
+                        entity_id=hashlib.md5(op_text.encode()).hexdigest()[:16],
+                        entity_type=EntityType.METHOD,
+                        name=op.name,
+                        location=Location(file_path=file_path, start_line=definition.line_number),
+                        file_path=file_path,
+                        content=op_text,
+                        signature=op_text,
+                        doc_comment=op.doc_comment or "",
+                        language="ice"
+                    )
+                    chunks.append({
+                        "content": op_text,
+                        "metadata": op_entity.to_dict()
+                    })
+
+        # 兜底
+        if not chunks:
+            chunks.append({
+                "content": content[:6000] if content else "",
+                "metadata": {
+                    "file_path": file_path,
+                    "entity_type": "file",
+                    "language": "ice",
+                    "name": Path(file_path).name
+                }
+            })
+        
+        return chunks
 
 class IceAnalyzer:
     """ICE Slice code analyzer"""
@@ -555,6 +627,10 @@ class IceAnalyzer:
         result["summary"] = self._generate_summary(result)
         
         return result
+    
+    def get_rag_chunks(self, file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get RAG chunks from the underlying parser"""
+        return self.parser.get_rag_chunks(file_path, content)
     
     def _generate_summary(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Generate summary statistics"""

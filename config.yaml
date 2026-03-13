@@ -42,7 +42,9 @@ knowledge_base:
     type: "chroma"
     persist_directory: "./data/indexes/chroma"
     collection_name: "cpp_code_knowledge"
-    embedding_model: "mixedbread-ai/mxbai-embed-large-v1"
+    #embedding_model: "mixedbread-ai/mxbai-embed-large-v1"
+    embedding_model: "all-MiniLM-L6-v2"
+    local_embedding_path: "./ext/08-models-embeddings/sentence-transformers-all-MiniLM-L6-v2"
     hnsw_space: "cosine"
     hnsw_ef_search: 100
     hnsw_m: 16

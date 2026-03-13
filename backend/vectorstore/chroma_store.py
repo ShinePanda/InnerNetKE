@@ -3,6 +3,7 @@
 兼容 chromadb 1.5.x 版本
 """
 import logging
+import asyncio
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
@@ -75,7 +76,8 @@ class ChromaVectorStore(VectorStore):
                     "hnsw:space": self.vector_config.hnsw_space
                 }
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to get_or_create_collection with : {e}")
             # 如果metadata格式不支持，使用简化版本
             self.collection = self.client.get_or_create_collection(
                 name=self.vector_config.collection_name
@@ -85,13 +87,16 @@ class ChromaVectorStore(VectorStore):
         self._init_embedding_function()
     
     def _init_embedding_function(self) -> None:
-        """初始化嵌入函数"""
-        model_name = self.vector_config.embedding_model
+        model_name = self.vector_config.embedding_model  # 可能是 "all-MiniLM-L6-v2"
+        local_path = self.vector_config.local_embedding_path
+        if local_path and Path(local_path).exists():
+            model_name = local_path
         
         try:
             # 尝试使用sentence-transformers
             self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name=model_name
+                model_name=model_name,
+                device="cpu"
             )
             logger.info(f"Using SentenceTransformer with model: {model_name}")
         except Exception as e:
@@ -104,7 +109,7 @@ class ChromaVectorStore(VectorStore):
         unique_str = f"{source}:{hashlib.md5(content.encode()).hexdigest()}"
         return f"doc_{uuid.uuid4().hex[:8]}"
     
-    async def add_documents(
+    def add_documents(
         self,
         documents: List[Dict[str, Any]],
         embeddings: Optional[np.ndarray] = None
@@ -122,9 +127,15 @@ class ChromaVectorStore(VectorStore):
             metadata = {
                 "source": doc.get("source", ""),
                 "source_type": doc.get("source_type", "code"),
+                # 新增：支持 path_mapper 关键字段
+                "dev_path": doc.get("dev_path", doc.get("file_path", "")),
+                "archive_path": doc.get("archive_path", ""),
+                "repo": doc.get("repo", ""),
                 "language": doc.get("language", "cpp"),
                 "entity_type": doc.get("entity_type", ""),
                 "entity_name": doc.get("entity_name", ""),
+                "line_start": doc.get("line_start", doc.get("location", {}).get("start_line", 0)),
+                "line_end": doc.get("line_end", doc.get("location", {}).get("end_line", 0)),
                 "file_path": doc.get("file_path", ""),
                 "line_start": doc.get("line_start", 0),
                 "line_end": doc.get("line_end", 0),
